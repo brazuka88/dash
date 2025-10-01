@@ -24,10 +24,11 @@ let historicalRates = new Map();
 let useHistoricalRates = false;
 let displayCurrency = 'BRL';
 let taxFreepikPct = 24;
+// NOVA VARIÁVEL DE ESTADO
+let showAllMonths = false; 
 
 const rateCache = new Map();
 
-// ATUALIZADO: A função load agora carrega um único arquivo com todos os dados
 async function load(){
   try {
     const response = await fetch(DATA_URL);
@@ -35,8 +36,7 @@ async function load(){
 
     const completeData = await response.json();
 
-    // Extrai os dados para as variáveis globais
-    RAW = flattenFromNested(completeData); // A função já espera um objeto com a chave "sites"
+    RAW = flattenFromNested(completeData);
     availableBalances = completeData.availableBalances;
 
     populateFilters();
@@ -45,7 +45,6 @@ async function load(){
 
   } catch (error) {
     console.error("Erro no carregamento inicial:", error);
-    // Mensagem de erro atualizada para o novo arquivo
     document.body.innerHTML = `<div style="padding: 20px; color: red; text-align: center;">${error.message}. Verifique se o arquivo 'dados_completos.json' existe e está com a formatação JSON correta.</div>`;
   }
 }
@@ -114,7 +113,10 @@ function attachCurrencyHandlers(){
         manual = document.getElementById('manualRates'),
         yearSel = document.getElementById('yearSel'),
         monthSel = document.getElementById('monthSel'),
-        siteSel = document.getElementById('siteSel');
+        siteSel = document.getElementById('siteSel'),
+        btnSelectAll = document.getElementById('btnSelectAll'),
+        // NOVO BOTÃO
+        btnToggleMonths = document.getElementById('btnToggleMonths');
 
   const update = () => {
     displayCurrency = sel.value; 
@@ -130,6 +132,17 @@ function attachCurrencyHandlers(){
   usd.oninput = eur.oninput = tax.oninput = ()=>{update(); if(!useHistoricalRates) render();};
   hist.onchange = ()=>{ update(); if(useHistoricalRates && historicalRates.size === 0) loadHistoricalRates(); else render(); };
   
+  btnSelectAll.onclick = () => {
+    [...siteSel.options].forEach(o => o.selected = true);
+    render();
+  };
+  
+  // EVENTO DO BOTÃO DE MOVIMENTAÇÃO MENSAL
+  btnToggleMonths.onclick = () => {
+    showAllMonths = !showAllMonths; // Inverte o estado
+    render(); // Re-renderiza o painel
+  };
+  
   document.getElementById('btnReset').onclick = ()=>{ 
     yearSel.value = "";
     monthSel.value = "";
@@ -138,6 +151,7 @@ function attachCurrencyHandlers(){
     eur.value = "6.00";
     tax.value = "24";
     hist.checked = false;
+    showAllMonths = false; // Reseta o estado do botão
     document.getElementById('rateStatus').textContent = '';
     [...siteSel.options].forEach(o => o.selected = true);
     historicalRates.clear(); 
@@ -205,12 +219,13 @@ function compute(){
   return {rows, series, platforms, total, totalBruto, avg, countMonths, best, worst};
 }
 
-// ======== FUNÇÃO MODIFICADA (Request 1) ========
 function renderAvailableBalance() {
   const tb = document.querySelector('#tblAvailableBalance tbody');
   if (!tb || !availableBalances) return;
 
-  let totalAvailableConverted = 0; // Nome da variável alterado para clareza
+  const { sites: selectedSites } = getFilters();
+  let totalAvailableConverted = 0;
+  
   tb.innerHTML = '';
 
   const sortedPlatforms = Object.entries(availableBalances)
@@ -220,16 +235,17 @@ function renderAvailableBalance() {
     if (balance == null) continue;
 
     const nativeCurrency = platformCurrency(platform);
+    
+    if (selectedSites.includes(platform)) {
+      if (displayCurrency === 'BRL') {
+        totalAvailableConverted += convertAmount(balance, nativeCurrency, 'BRL');
+      } else if (displayCurrency === nativeCurrency) {
+        totalAvailableConverted += balance;
+      }
+    }
+
     const threshold = THRESHOLDS[platform] || 0;
     const progress = threshold > 0 ? (balance / threshold) * 100 : 100;
-
-    // Lógica para somar ao total do KPI, respeitando a moeda de exibição
-    if (displayCurrency === 'BRL') {
-      totalAvailableConverted += convertAmount(balance, nativeCurrency, 'BRL');
-    } else if (displayCurrency === nativeCurrency) {
-      // Soma apenas se a moeda nativa da plataforma for a mesma da exibição
-      totalAvailableConverted += balance;
-    }
 
     tb.innerHTML += `
       <tr>
@@ -248,13 +264,11 @@ function renderAvailableBalance() {
 
   const kpiEl = document.getElementById('kpiAvailableBalance');
   if (kpiEl) {
-    // Usa a função fmt() para formatar o valor na moeda de exibição correta
     kpiEl.textContent = fmt(totalAvailableConverted);
   }
 }
 
-
-// ======== FUNÇÃO MODIFICADA (Request 2) ========
+// ======== FUNÇÃO MODIFICADA ========
 function renderTables(state){
   const {platforms, total, rows, totalBruto} = state;
   const tblPlatformsBody = document.querySelector('#tblPlatforms tbody');
@@ -263,15 +277,19 @@ function renderTables(state){
   tblPlatformsBody.innerHTML = platforms.map(p=>{
     const pct = total? ((p.val/total)*100).toFixed(1) : '0.0';
     
-    // Lógica para a nova coluna "A Receber"
     const nativeBalance = availableBalances[p.name] || 0;
     const nativeCurrency = platformCurrency(p.name);
+    
+    let balanceToConvert = nativeBalance;
+    if (String(p.name).toLowerCase().includes('freepik')) {
+        balanceToConvert = nativeBalance * (1 - taxFreepikPct / 100);
+    }
+    
     let aReceber = 0;
-
     if (displayCurrency === 'BRL') {
-      aReceber = convertAmount(nativeBalance, nativeCurrency, 'BRL');
+      aReceber = convertAmount(balanceToConvert, nativeCurrency, 'BRL');
     } else if (displayCurrency === nativeCurrency) {
-      aReceber = nativeBalance;
+      aReceber = balanceToConvert;
     }
     
     totalAReceber += aReceber;
@@ -285,13 +303,14 @@ function renderTables(state){
             </tr>`;
   }).join('');
   
-  // Atualiza os totais no rodapé da tabela
   document.getElementById('tblTotal').textContent = fmt(total);
   document.getElementById('tblTotalBruto').textContent = fmt(totalBruto);
   document.getElementById('tblTotalAReceber').textContent = fmt(totalAReceber);
   
-  // Tabela de Movimentação Mensal (sem alterações)
+  // Tabela de Movimentação Mensal (LÓGICA ALTERADA)
   const tblMonths = document.getElementById('tblMonths');
+  const toggleBtn = document.getElementById('btnToggleMonths');
+
   tblMonths.querySelector('thead').innerHTML = `
     <tr>
         <th>Mês/Ano</th>
@@ -305,10 +324,27 @@ function renderTables(state){
     const o = monthAgg.get(k) || { bruto:0, liquido:0, year:d.year, month:d.month_num };
     o.bruto += d.amount_conv_bruto; o.liquido += d.amount_conv; monthAgg.set(k,o);
   });
-  tblMonths.querySelector('tbody').innerHTML = [...monthAgg.values()].sort((a,b)=> (b.year - a.year) || (b.month - a.month)).map(s=>{
+  
+  const sortedMonths = [...monthAgg.values()].sort((a,b)=> (b.year - a.year) || (b.month - a.month));
+  
+  // Lógica para limitar a 15 meses e controlar o botão
+  let monthsToDisplay = sortedMonths;
+  if (!showAllMonths && sortedMonths.length > 12) {
+      monthsToDisplay = sortedMonths.slice(0, 12);
+  }
+
+  if (sortedMonths.length > 12) {
+    toggleBtn.style.display = 'block';
+    toggleBtn.textContent = showAllMonths ? 'Ver menos ↑' : 'Ver mais ↓';
+  } else {
+    toggleBtn.style.display = 'none';
+  }
+
+  tblMonths.querySelector('tbody').innerHTML = monthsToDisplay.map(s=>{
     return `<tr><td>${PT_MONTHS[s.month-1]}/${s.year}</td><td>${fmt(s.bruto)}</td><td>${fmt(s.liquido)}</td></tr>`;
   }).join('');
 }
+
 
 function renderKpis(state){
   const {total, avg, best, worst, countMonths} = state;

@@ -27,6 +27,7 @@
       <div class="card">
         <label for="siteSel">Plataformas</label>
         <select id="siteSel" multiple size="8"></select>
+        <button id="btnSelectAll" style="margin-top: 12px;">Selecionar Todas</button>
       </div>
       <div class="card">
         <label for="currencySel">Moeda de exibição</label>
@@ -85,7 +86,6 @@
         <div id="kpiAvg" class="value">—</div>
         <div class="muted info" id="kpiCount"> </div>
       </div>
-      <!-- NOVO KPI ADICIONADO AQUI -->
       <div class="card kpi">
         <div class="label muted">Total Disponível (Bruto)</div>
         <div id="kpiAvailableBalance" class="value">—</div>
@@ -112,7 +112,6 @@
                 <th>Plataforma</th>
                 <th>Bruto</th>
                 <th>Líquido</th>
-                <!-- COLUNA ADICIONADA -->
                 <th>A Receber</th>
                 <th>% (sobre líquido)</th>
               </tr>
@@ -123,7 +122,6 @@
                 <td>Total</td>
                 <td id="tblTotalBruto">—</td>
                 <td id="tblTotal">—</td>
-                <!-- CÉLULA DO TOTAL ADICIONADA -->
                 <td id="tblTotalAReceber">—</td>
                 <td>100%</td>
               </tr>
@@ -141,8 +139,11 @@
             <tbody></tbody>
           </table>
         </div>
+        <!-- BOTÃO "VER MAIS" ADICIONADO AQUI -->
+        <div class="toggle-container">
+          <button id="btnToggleMonths" class="btn-secondary" style="display: none;">Ver mais</button>
+        </div>
       </div>
-       <!-- NOVA TABELA ADICIONADA AQUI -->
       <div class="card">
         <div class="pill">Saldo Disponível por Plataforma</div>
         <div class="table-container">
