@@ -94,7 +94,7 @@
         "junho": 44.87,
         "julho": 32.4,
         "agosto": 35.28,
-        "setembro": 60.86,
+        "setembro": 70.91,
         "outubro": null,
         "novembro": null,
         "dezembro": null
@@ -152,7 +152,7 @@
         "junho": 20.93,
         "julho": 32.03,
         "agosto": 25.51,
-        "setembro": null,
+        "setembro": 25.72,
         "outubro": null,
         "novembro": null,
         "dezembro": null
@@ -238,8 +238,8 @@
         "junho": 12.93,
         "julho": 7.05,
         "agosto": 5.44,
-        "setembro": 15.85,
-        "outubro": null,
+        "setembro": 16.07,
+        "outubro": 0.23,
         "novembro": null,
         "dezembro": null
       }
